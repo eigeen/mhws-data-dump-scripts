@@ -299,7 +299,8 @@ accessory_percent_data["技能2"] = list(map(lambda x: x[1][0], skill_data))
 accessory_percent_data["技能2等级"] = list(map(lambda x: x[1][1], skill_data))
 accessory_percent_data["期望值"] = (
     accessory_percent_data.filter(like="Ratio: ")
-    .sum(axis=1)
+    # .sum(axis=1)
+    .max(axis=1)
     .apply(lambda x: 1 / x if x != 0 else 0)
     .apply(lambda x: math.ceil(x))
 )
@@ -312,9 +313,7 @@ for col in accessory_percent_data.columns:
             match = re_enum_value.match(cell)
             if match:
                 accessory_percent_data.at[idx, col] = match.group(1)
-                print(accessory_percent_data.at[idx, col])
 
-print(accessory_percent_data)
 with pd.ExcelWriter("AccessoryPercent.xlsx", engine="openpyxl") as writer:
     accessory_percent_data.to_excel(writer, sheet_name="AccessoryPercent", index=False)
 autofit.style_excel("AccessoryPercent.xlsx")
