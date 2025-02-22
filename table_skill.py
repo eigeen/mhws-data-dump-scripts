@@ -317,3 +317,14 @@ for col in accessory_percent_data.columns:
 with pd.ExcelWriter("AccessoryPercent.xlsx", engine="openpyxl") as writer:
     accessory_percent_data.to_excel(writer, sheet_name="AccessoryPercent", index=False)
 autofit.style_excel("AccessoryPercent.xlsx")
+
+accessory_ratio_data_raw = accessory_ratio_data.copy()
+for col in accessory_ratio_data_raw.columns:
+    match = re_enum_value.match(col)
+    if match:
+        accessory_ratio_data_raw.rename(columns={col: match.group(1)}, inplace=True)
+for idx in accessory_ratio_data_raw.index:
+    match = re_enum_value.match(idx)
+    if match:
+        accessory_ratio_data_raw.rename(index={idx: match.group(1)}, inplace=True)  
+accessory_ratio_data_raw.to_csv("AccessoryPercentRaw.csv")
