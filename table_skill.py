@@ -218,113 +218,115 @@ def dump_accessory_ratio_data(
     return df
 
 
-skill_common_data = dump_skill_common_data(
-    "natives-benchmark/STM/GameDesign/Common/Equip/SkillCommonData.user.3.json"
-)
-accessory_data = dump_accessory_data(
-    "natives-benchmark/STM/GameDesign/Common/Equip/AccessoryData.user.3.json",
-    skill_common_data,
-)
-accessory_ratio_data = dump_accessory_ratio_data(
-    "natives-benchmark/STM/GameDesign/Common/Equip/AccessoryJudgeData.user.3.json",
-    "natives-benchmark/STM/GameDesign/Common/Equip/AccessoryRankJudgeData.user.3.json",
-    accessory_data,
-)
-# 根据ACC_ID合并珠子抽卡概率
-accessory_data = accessory_data.merge(
-    accessory_ratio_data, left_on="AccessoryId", right_index=True
-)
-
-# 替换索引的Acc ID为名称
-for col_name in accessory_data.columns:
-    name = item_db.get_entry_by_id(col_name)
-    if name:
-        accessory_data.rename(
-            columns={col_name: f"Ratio: {name.raw_name}"}, inplace=True
-        )
-# print(accessory_data)
-
-sheets = {
-    "SkillCommonData": skill_common_data,
-    "SkillData": dump_skill_data(
-        "natives-benchmark/STM/GameDesign/Common/Equip/SkillData.user.3.json",
+if __name__ == "__main__":
+    skill_common_data = dump_skill_common_data(
+        "natives/STM/GameDesign/Common/Equip/SkillCommonData.user.3.json"
+    )
+    accessory_data = dump_accessory_data(
+        "natives/STM/GameDesign/Common/Equip/AccessoryData.user.3.json",
         skill_common_data,
-    ),
-    "AccessoryData": accessory_data,
-}
+    )
+    accessory_ratio_data = dump_accessory_ratio_data(
+        "natives/STM/GameDesign/Common/Equip/AccessoryJudgeData.user.3.json",
+        "natives/STM/GameDesign/Common/Equip/AccessoryRankJudgeData.user.3.json",
+        accessory_data,
+    )
+    # 根据ACC_ID合并珠子抽卡概率
+    accessory_data = accessory_data.merge(
+        accessory_ratio_data, left_on="AccessoryId", right_index=True
+    )
 
-with pd.ExcelWriter("SkillCollection.xlsx", engine="openpyxl") as writer:
-    for sheet_name, df in sheets.items():
-        df.to_excel(writer, sheet_name=sheet_name, index=False)
+    # 替换索引的Acc ID为名称
+    for col_name in accessory_data.columns:
+        name = item_db.get_entry_by_id(col_name)
+        if name:
+            accessory_data.rename(
+                columns={col_name: f"Ratio: {name.raw_name}"}, inplace=True
+            )
+    # print(accessory_data)
 
+    sheets = {
+        "SkillCommonData": skill_common_data,
+        "SkillData": dump_skill_data(
+            "natives/STM/GameDesign/Common/Equip/SkillData.user.3.json",
+            skill_common_data,
+        ),
+        "AccessoryData": accessory_data,
+    }
 
-autofit = ExcelAutoFit()
-autofit.style_excel("SkillCollection.xlsx")
+    with pd.ExcelWriter("SkillCollection.xlsx", engine="openpyxl") as writer:
+        for sheet_name, df in sheets.items():
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-import openpyxl
-from openpyxl.styles import NamedStyle
-from openpyxl.utils import get_column_letter
+    autofit = ExcelAutoFit()
+    autofit.style_excel("SkillCollection.xlsx")
 
-# 修订格式
-decimal_style = NamedStyle(name="percent_decimal_style", number_format="0.0000")
-wb = openpyxl.load_workbook("SkillCollection.xlsx")
-sheet = wb["AccessoryData"]
-# 遍历列头
-for col in sheet.iter_cols(1, sheet.max_column):
-    column_header = col[0].value  # 获取列头的值
-    if column_header.startswith("Ratio: "):
-        col_letter = get_column_letter(col[0].column)  # 获取列字母
-        for cell in sheet[col_letter]:
-            if isinstance(cell.value, (int, float)):  # 检查单元格的值是否为数字
-                cell.style = decimal_style  # 应用样式
-wb.save("SkillCollection.xlsx")
+    import openpyxl
+    from openpyxl.styles import NamedStyle
+    from openpyxl.utils import get_column_letter
 
+    # 修订格式
+    decimal_style = NamedStyle(name="percent_decimal_style", number_format="0.0000")
+    wb = openpyxl.load_workbook("SkillCollection.xlsx")
+    sheet = wb["AccessoryData"]
+    # 遍历列头
+    for col in sheet.iter_cols(1, sheet.max_column):
+        column_header = col[0].value  # 获取列头的值
+        if column_header.startswith("Ratio: "):
+            col_letter = get_column_letter(col[0].column)  # 获取列字母
+            for cell in sheet[col_letter]:
+                if isinstance(cell.value, (int, float)):  # 检查单元格的值是否为数字
+                    cell.style = decimal_style  # 应用样式
+    wb.save("SkillCollection.xlsx")
 
-# 导出额外分表
-accessory_percent_data = accessory_data.copy()
-accessory_percent_data.drop(
-    ["Name", "Explain", "IconColor", "SlotLevelAcc"], axis=1, inplace=True
-)
-skills = accessory_percent_data["Skill"]
-skill_levels = accessory_percent_data["SkillLevel"]
-skill_data = []
-for i in range(len(skills)):
-    acc_skills = []
-    for j in range(len(skills[i])):
-        acc_skills.append([skills[i][j], skill_levels[i][j]])
-    skill_data.append(acc_skills)
-accessory_percent_data["技能1"] = list(map(lambda x: x[0][0], skill_data))
-accessory_percent_data["技能1等级"] = list(map(lambda x: x[0][1], skill_data))
-accessory_percent_data["技能2"] = list(map(lambda x: x[1][0], skill_data))
-accessory_percent_data["技能2等级"] = list(map(lambda x: x[1][1], skill_data))
-accessory_percent_data["期望值"] = (
-    accessory_percent_data.filter(like="Ratio: ")
-    # .sum(axis=1)
-    .max(axis=1)
-    .apply(lambda x: 1 / x if x != 0 else 0)
-    .apply(lambda x: math.ceil(x))
-)
-# 遍历所有单元格，移除enum value prefix [123]ENUM_VALUE -> ENUM_VALUE
-import re
-re_enum_value = re.compile(r"^\[.*?\](.*)$")
-for col in accessory_percent_data.columns:
-    for idx, cell in enumerate(accessory_percent_data[col]):
-        if isinstance(cell, str):
-            match = re_enum_value.match(cell)
-            if match:
-                accessory_percent_data.at[idx, col] = match.group(1)
+    # 导出额外分表
+    accessory_percent_data = accessory_data.copy()
+    accessory_percent_data.drop(
+        ["Name", "Explain", "IconColor", "SlotLevelAcc"], axis=1, inplace=True
+    )
+    skills = accessory_percent_data["Skill"]
+    skill_levels = accessory_percent_data["SkillLevel"]
+    skill_data = []
+    for i in range(len(skills)):
+        acc_skills = []
+        for j in range(len(skills[i])):
+            acc_skills.append([skills[i][j], skill_levels[i][j]])
+        skill_data.append(acc_skills)
+    accessory_percent_data["技能1"] = list(map(lambda x: x[0][0], skill_data))
+    accessory_percent_data["技能1等级"] = list(map(lambda x: x[0][1], skill_data))
+    accessory_percent_data["技能2"] = list(map(lambda x: x[1][0], skill_data))
+    accessory_percent_data["技能2等级"] = list(map(lambda x: x[1][1], skill_data))
+    accessory_percent_data["期望值"] = (
+        accessory_percent_data.filter(like="Ratio: ")
+        # .sum(axis=1)
+        .max(axis=1)
+        .apply(lambda x: 1 / x if x != 0 else 0)
+        .apply(lambda x: math.ceil(x))
+    )
+    # 遍历所有单元格，移除enum value prefix [123]ENUM_VALUE -> ENUM_VALUE
+    import re
 
-with pd.ExcelWriter("AccessoryPercent.xlsx", engine="openpyxl") as writer:
-    accessory_percent_data.to_excel(writer, sheet_name="AccessoryPercent", index=False)
-autofit.style_excel("AccessoryPercent.xlsx")
+    re_enum_value = re.compile(r"^\[.*?\](.*)$")
+    for col in accessory_percent_data.columns:
+        for idx, cell in enumerate(accessory_percent_data[col]):
+            if isinstance(cell, str):
+                match = re_enum_value.match(cell)
+                if match:
+                    accessory_percent_data.at[idx, col] = match.group(1)
 
-accessory_ratio_data_raw = accessory_ratio_data.copy()
-for col in accessory_ratio_data_raw.columns:
-    match = re_enum_value.match(col)
-    if match:
-        accessory_ratio_data_raw.rename(columns={col: match.group(1)}, inplace=True)
-for idx in accessory_ratio_data_raw.index:
-    match = re_enum_value.match(idx)
-    if match:
-        accessory_ratio_data_raw.rename(index={idx: match.group(1)}, inplace=True)  
-accessory_ratio_data_raw.to_csv("AccessoryPercentRaw.csv")
+    with pd.ExcelWriter("AccessoryPercent.xlsx", engine="openpyxl") as writer:
+        accessory_percent_data.to_excel(
+            writer, sheet_name="AccessoryPercent", index=False
+        )
+    autofit.style_excel("AccessoryPercent.xlsx")
+
+    accessory_ratio_data_raw = accessory_ratio_data.copy()
+    for col in accessory_ratio_data_raw.columns:
+        match = re_enum_value.match(col)
+        if match:
+            accessory_ratio_data_raw.rename(columns={col: match.group(1)}, inplace=True)
+    for idx in accessory_ratio_data_raw.index:
+        match = re_enum_value.match(idx)
+        if match:
+            accessory_ratio_data_raw.rename(index={idx: match.group(1)}, inplace=True)
+    accessory_ratio_data_raw.to_csv("AccessoryPercentRaw.csv")
