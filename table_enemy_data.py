@@ -69,10 +69,17 @@ def dump_species_data(path: str) -> pd.DataFrame:
 species_data = dump_species_data(
     "natives/STM/GameDesign/Common/Enemy/EnemySpecies.user.3.json"
 )
+enemy_data = dump_enemy_data(
+    "natives/STM/GameDesign/Common/Enemy/EnemyData.user.3.json", species_data
+)
+# 统计种族数量
+species_counts = enemy_data["Species"].value_counts()
+species_counts = species_counts.reset_index()
+species_counts.columns = ["EmSpeciesName", "Count"]
+species_data = species_data.merge(species_counts, on="EmSpeciesName")
+
 sheets = {
-    "EnemyData": dump_enemy_data(
-        "natives/STM/GameDesign/Common/Enemy/EnemyData.user.3.json", species_data
-    ),
+    "EnemyData": enemy_data,
     "SpeciesData": species_data,
 }
 
