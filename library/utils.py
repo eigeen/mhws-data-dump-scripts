@@ -27,6 +27,7 @@ def minify_nested_serial(obj: dict) -> str | dict:
     return obj
 
 
+# 移除枚举值前缀，只保留枚举名
 def remove_enum_value(text: object) -> str | object:
     if isinstance(text, list):
         return [remove_enum_value(t) for t in text]
