@@ -138,6 +138,7 @@ dmypy.json
 cython_debug/
 
 natives/
+em_icons/
 texts/
 *.json
 *.zip

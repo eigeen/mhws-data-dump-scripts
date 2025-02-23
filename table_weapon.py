@@ -15,7 +15,26 @@ from table_skill import dump_skill_common_data, dump_skill_data
 text_db = load_text_db("texts_db.json")
 
 
-def dump_weapon_data(
+def get_weapon_types() -> dict[str, int]:
+    return {
+        "LongSword": 0,
+        "ShortSword": 1,
+        "TwinSword": 2,
+        "Tachi": 3,
+        "Hammer": 4,
+        "Whistle": 5,
+        "Lance": 6,
+        "Gunlance": 7,
+        "SlashAxe": 8,
+        "ChargeAxe": 9,
+        "Rod": 10,
+        "Bow": 11,
+        "HeavyBowgun": 12,
+        "LightBowgun": 13,
+    }
+
+
+def _dump_weapon_data(
     path: str,
     weapon_type: str,
     weapon_types: dict[str, int],
@@ -138,55 +157,45 @@ def dump_weapon_data(
     return df
 
 
-weapon_types = {
-    "LongSword": 0,
-    "ShortSword": 1,
-    "TwinSword": 2,
-    "Tachi": 3,
-    "Hammer": 4,
-    "Whistle": 5,
-    "Lance": 6,
-    "Gunlance": 7,
-    "SlashAxe": 8,
-    "ChargeAxe": 9,
-    "Rod": 10,
-    "Bow": 11,
-    "HeavyBowgun": 12,
-    "LightBowgun": 13,
-}
-weapon_types_lower = {}
-for key, value in weapon_types.items():
-    weapon_types_lower[key.lower()] = value
+def dump_weapon_data() -> dict[str, pd.DataFrame]:
+    weapon_types = get_weapon_types()
+    weapon_types_lower = {}
+    for key, value in weapon_types.items():
+        weapon_types_lower[key.lower()] = value
 
-weapon_paths = {}
-for weapon_type in weapon_types.keys():
-    weapon_paths[weapon_type] = (
-        f"natives/STM/GameDesign/Common/Weapon/{weapon_type}.user.3.json"
+    weapon_paths = {}
+    for weapon_type in weapon_types.keys():
+        weapon_paths[weapon_type] = (
+            f"natives/STM/GameDesign/Common/Weapon/{weapon_type}.user.3.json"
+        )
+
+    skill_common_data = dump_skill_common_data(
+        "natives/STM/GameDesign/Common/Equip/SkillCommonData.user.3.json"
     )
 
-skill_common_data = dump_skill_common_data(
-    "natives/STM/GameDesign/Common/Equip/SkillCommonData.user.3.json"
-)
+    sheets = {}
+    for weapon_type, path in weapon_paths.items():
+        df = _dump_weapon_data(
+            weapon_paths[weapon_type],
+            weapon_type.lower(),
+            weapon_types_lower,
+            skill_common_data,
+        )
+        sheets[weapon_type] = df
+    return sheets
 
-sheets = {}
-for weapon_type, path in weapon_paths.items():
-    df = dump_weapon_data(
-        weapon_paths[weapon_type],
-        weapon_type.lower(),
-        weapon_types_lower,
-        skill_common_data,
-    )
-    sheets[weapon_type] = df
 
-with pd.ExcelWriter("WeaponCollection.xlsx") as writer:
-    for sheet_name, df in sheets.items():
-        # 武器表名前加 Wp_ 前缀
-        sheet_name = f"Wp_{sheet_name}"
-        df.to_excel(writer, sheet_name=sheet_name, index=False)
+if __name__ == "__main__":
+    sheets = dump_weapon_data()
+    with pd.ExcelWriter("WeaponCollection.xlsx") as writer:
+        for sheet_name, df in sheets.items():
+            # 武器表名前加 Wp_ 前缀
+            sheet_name = f"Wp_{sheet_name}"
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
 
-print("Applying autofit...")
-autofit = ExcelAutoFit()
-autofit.style_excel("WeaponCollection.xlsx")
+        print("Applying autofit...")
+        autofit = ExcelAutoFit()
+        autofit.style_workbook(writer.book)
 
-print("Applying rare colors...")
-apply_rare_colors("WeaponCollection.xlsx")
+        print("Applying rare colors...")
+        apply_rare_colors(writer.book)

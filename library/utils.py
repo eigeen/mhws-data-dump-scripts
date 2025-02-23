@@ -41,7 +41,10 @@ def remove_enum_value(text: object) -> str | object:
 
 # 将指定的一个或多个列排序到指定的列之后
 def reindex_column(
-    df: pd.DataFrame, column: str | list[str], next_to: str = "", to_end: bool = False
+    df: pd.DataFrame,
+    column: str | list[str],
+    next_to: str = "",
+    to_end: bool = False,
 ):
     if next_to == "" and not to_end:
         raise ValueError("Either next_to or to_end must be specified")
@@ -62,3 +65,31 @@ def reindex_column(
         new_columns.remove(c)
         new_columns.insert(new_columns.index(next_to) + 1, c)
     return df.reindex(columns=new_columns)
+
+
+# 将指定的一个或多个行排序到指定的行之后
+def reindex_row(
+    df: pd.DataFrame,
+    row: str | list[str],
+    next_to: str = "",
+    to_end: bool = False,
+):
+    if next_to == "" and not to_end:
+        raise ValueError("Either next_to or to_end must be specified")
+    if to_end:
+        next_to = df.index[-1]
+
+    if isinstance(row, str):
+        row = [row]
+    for r in row:
+        if r not in df.index:
+            raise ValueError(f"Row {r} not found in DataFrame")
+    if next_to not in df.index:
+        raise ValueError(f"Row {next_to} not found in DataFrame")
+
+    new_index = df.index.tolist()
+    row.reverse()
+    for r in row:
+        new_index.remove(r)
+        new_index.insert(new_index.index(next_to) + 1, r)
+    return df.reindex(index=new_index)
