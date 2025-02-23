@@ -70,7 +70,9 @@ def dump_series_data(path: str) -> pd.DataFrame:
     return pd.DataFrame(table)
 
 
-def dump_weapon_derive_tree(path: str, series_data: pd.DataFrame) -> pd.DataFrame:
+def dump_weapon_derive_tree(
+    path: str, weapon_type: str, series_data: pd.DataFrame, weapon_sheets: dict[str, pd.DataFrame]
+) -> pd.DataFrame:
     data = None
     with open(
         path,
@@ -226,8 +228,7 @@ def dump_weapon_derive_tree(path: str, series_data: pd.DataFrame) -> pd.DataFram
             weapon_place_matrix.iat[i, j] = cell
 
     # 应用名字
-    weapon_sheets = dump_weapon_data()
-    whistle_data = weapon_sheets["Whistle"]
+    weapon_data = weapon_sheets[weapon_type]
 
     for i in range(max_row):
         for j in range(max_col):
@@ -236,7 +237,7 @@ def dump_weapon_derive_tree(path: str, series_data: pd.DataFrame) -> pd.DataFram
             if len(weapon_index) == 0:
                 continue
             weapon_index = weapon_index.iloc[0]
-            name = whistle_data.loc[whistle_data["Index"] == weapon_index, "Name"]
+            name = weapon_data.loc[weapon_data["Index"] == weapon_index, "Name"]
             if len(name) == 0:
                 continue
             name = name.iloc[0]
@@ -265,14 +266,17 @@ if __name__ == "__main__":
     series_data = dump_series_data(
         "natives/STM/GameDesign/Common/Equip/WeaponSeriesData.user.3.json"
     )
+    weapon_sheets = dump_weapon_data()
 
     with pd.ExcelWriter("WeaponCraftTree.xlsx", engine="openpyxl") as writer:
         for weapon_type in weapon_types.keys():
             print(f"Dumping {weapon_type} tree data...")
-            file_path = (
-                f"natives/STM/GameDesign/Common/Weapon/{weapon_type}Tree.user.3.json"
+            weapon_place_matrix = dump_weapon_derive_tree(
+                f"natives/STM/GameDesign/Common/Weapon/{weapon_type}Tree.user.3.json",
+                weapon_type,
+                series_data,
+                weapon_sheets,
             )
-            weapon_place_matrix = dump_weapon_derive_tree(file_path, series_data)
             weapon_place_matrix.to_excel(writer, sheet_name=weapon_type, index=True)
 
         # 格式化
