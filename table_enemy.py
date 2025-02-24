@@ -76,6 +76,8 @@ def dump_species_data(path: str) -> pd.DataFrame:
 
 
 def main():
+    # text_db.set_default_lang(1)
+    
     species_data = dump_species_data(
         "natives/STM/GameDesign/Common/Enemy/EnemySpecies.user.3.json"
     )

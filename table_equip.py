@@ -71,12 +71,12 @@ def _dump_weapon_data(
                 "MainShell",
                 "ShellLv",
                 "ShellNum",
-                "RapidShellNum",
-                "IsRappid",
                 "CustomizePattern",
                 "DispSilencer",
                 "DispBarrel",
             }:
+                continue
+            if weapon_type != "lightbowgun" and key in {"RapidShellNum", "IsRappid"}:
                 continue
             if weapon_type != "heavybowgun" and key in {
                 "EnergyEfficiency",
@@ -187,6 +187,21 @@ def dump_weapon_data(keep_serial_id: bool = False) -> dict[str, pd.DataFrame]:
         )
         sheets[weapon_type] = df
     return sheets
+
+
+def dump_armor_data() -> pd.DataFrame:
+    skill_common_data = dump_skill_common_data(
+        "natives/STM/GameDesign/Common/Equip/SkillCommonData.user.3.json"
+    )
+    armorseries_data = dump_armor_series_data(
+        "natives/STM/GameDesign/Common/Equip/ArmorSeriesData.user.3.json"
+    )
+    armor_data = _dump_armor_data(
+        "natives/STM/GameDesign/Common/Equip/ArmorData.user.3.json",
+        skill_common_data,
+        armorseries_data,
+    )
+    return armor_data
 
 
 def _dump_armor_data(
@@ -318,17 +333,7 @@ def dump_armor_series_data(path: str) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    skill_common_data = dump_skill_common_data(
-        "natives/STM/GameDesign/Common/Equip/SkillCommonData.user.3.json"
-    )
-    armorseries_data = dump_armor_series_data(
-        "natives/STM/GameDesign/Common/Equip/ArmorSeriesData.user.3.json"
-    )
-    armor_data = _dump_armor_data(
-        "natives/STM/GameDesign/Common/Equip/ArmorData.user.3.json",
-        skill_common_data,
-        armorseries_data,
-    )
+    armor_data = dump_armor_data()
     sheets = dump_weapon_data()
     with pd.ExcelWriter("EquipCollection.xlsx") as writer:
         armor_data.to_excel(writer, sheet_name="Armor", index=False)

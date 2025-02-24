@@ -280,6 +280,12 @@ if __name__ == "__main__":
             sheet = writer.book[sheet_name]
             max_cols = sheet.max_column
             max_rows = sheet.max_row
+
+            # 设置签名
+            sheet.cell(row=max_rows + 1, column=1).value = (
+                "Created by openpyxl  AUTO-GENERATED"
+            )
+
             # 设置宽高
             for i in range(max_cols):
                 if i == 0:
