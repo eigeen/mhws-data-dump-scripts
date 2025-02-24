@@ -1,6 +1,5 @@
 import json
-
-import openpyxl.styles
+import re
 import pandas as pd
 import numpy as np
 import openpyxl
@@ -14,9 +13,10 @@ from library.utils import (
     remove_enum_value,
 )
 from library.text_db import load_text_db
-from table_weapon import dump_weapon_data, get_weapon_types
+from table_equip import dump_weapon_series_data, dump_weapon_data, get_weapon_types
 
 text_db = load_text_db("texts_db.json")
+re_serial_value = re.compile(r"^\[([-\d]+?)\](.*)$")
 
 
 # 获取指定GUID的行列位置（绝对位置int，非索引）
@@ -47,31 +47,11 @@ def is_line_cell(text: str) -> bool:
     return text in {"─────", "│", "   ├───", "   └───"}
 
 
-def dump_series_data(path: str) -> pd.DataFrame:
-    data = None
-    with open(path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    table = []
-    for cData in data[0]["app.user_data.WeaponSeriesData"]["_Values"]:
-        cData = cData["app.user_data.WeaponSeriesData.cData"]
-        row = {}
-        for key, value in cData.items():
-            if key.startswith("_"):
-                key = key[1:]
-
-            value = minify_nested_serial(value)
-            value = remove_enum_value(value)
-            text = text_db.get_text_by_guid(str(value))
-            if text:
-                value = text
-            row[key] = value
-        table.append(row)
-    return pd.DataFrame(table)
-
-
 def dump_weapon_derive_tree(
-    path: str, weapon_type: str, series_data: pd.DataFrame, weapon_sheets: dict[str, pd.DataFrame]
+    path: str,
+    weapon_type: str,
+    series_data: pd.DataFrame,
+    weapon_sheets: dict[str, pd.DataFrame],
 ) -> pd.DataFrame:
     data = None
     with open(
@@ -230,6 +210,14 @@ def dump_weapon_derive_tree(
     # 应用名字
     weapon_data = weapon_sheets[weapon_type]
 
+    def _extract_serial_value(text: str) -> str:
+        match = re_serial_value.match(text)
+        if match:
+            return int(match.group(1))
+        return -1
+
+    weapon_data["IdEnumValue"] = weapon_data["Id"].apply(_extract_serial_value)
+
     for i in range(max_row):
         for j in range(max_col):
             prob_guid = weapon_place_matrix.iat[i, j]
@@ -237,7 +225,7 @@ def dump_weapon_derive_tree(
             if len(weapon_index) == 0:
                 continue
             weapon_index = weapon_index.iloc[0]
-            name = weapon_data.loc[weapon_data["Index"] == weapon_index, "Name"]
+            name = weapon_data.loc[weapon_data["IdEnumValue"] == weapon_index, "Name"]
             if len(name) == 0:
                 continue
             name = name.iloc[0]
@@ -263,10 +251,10 @@ def dump_weapon_derive_tree(
 if __name__ == "__main__":
     weapon_types = get_weapon_types()
 
-    series_data = dump_series_data(
+    weapon_series_data = dump_weapon_series_data(
         "natives/STM/GameDesign/Common/Equip/WeaponSeriesData.user.3.json"
     )
-    weapon_sheets = dump_weapon_data()
+    weapon_sheets_with_serial_id = dump_weapon_data(keep_serial_id=True)
 
     with pd.ExcelWriter("WeaponCraftTree.xlsx", engine="openpyxl") as writer:
         for weapon_type in weapon_types.keys():
@@ -274,8 +262,8 @@ if __name__ == "__main__":
             weapon_place_matrix = dump_weapon_derive_tree(
                 f"natives/STM/GameDesign/Common/Weapon/{weapon_type}Tree.user.3.json",
                 weapon_type,
-                series_data,
-                weapon_sheets,
+                weapon_series_data,
+                weapon_sheets_with_serial_id,
             )
             weapon_place_matrix.to_excel(writer, sheet_name=weapon_type, index=True)
 
@@ -284,9 +272,11 @@ if __name__ == "__main__":
         border_style = Border(
             left=side_style, right=side_style, top=side_style, bottom=side_style
         )
-        fill_style = PatternFill(fill_type="solid", fgColor="C5C5C5")
+        # fill_style = PatternFill(fill_type="solid", fgColor="C5C5C5")
+        weapon_sheets = dump_weapon_data(keep_serial_id=False)
         for sheet_name in writer.sheets:
             print(f"Formatting {sheet_name}...")
+            weapon_sheet = weapon_sheets[sheet_name]
             sheet = writer.book[sheet_name]
             max_cols = sheet.max_column
             max_rows = sheet.max_row
@@ -322,3 +312,33 @@ if __name__ == "__main__":
                             # 非空单元格
                             cell.border = border_style
                             # cell.fill = fill_style
+                            # 判断武器属性
+                            attr = weapon_sheet.loc[
+                                weapon_sheet["Name"] == cell.value, "Attribute"
+                            ]
+                            if len(attr) > 0:
+                                attr = attr.iloc[0]
+                                if attr == "FIRE":
+                                    cell.font = Font(color="E15057")
+                                    cell.value = f"{cell.value} (火)"
+                                elif attr == "WATER":
+                                    cell.font = Font(color="6CA3D9")
+                                    cell.value = f"{cell.value} (水)"
+                                elif attr == "ICE":
+                                    cell.font = Font(color="2EC9E6")
+                                    cell.value = f"{cell.value} (冰)"
+                                elif attr == "ELEC":
+                                    cell.font = Font(color="F2C21D")
+                                    cell.value = f"{cell.value} (雷)"
+                                elif attr == "DRAGON":
+                                    cell.font = Font(color="56379E")
+                                    cell.value = f"{cell.value} (龙)"
+                                elif attr == "PARALYSE":
+                                    cell.font = Font(color="B38F48")
+                                    cell.value = f"{cell.value} (麻)"
+                                elif attr == "SLEEP":
+                                    cell.font = Font(color="685ECD")
+                                    cell.value = f"{cell.value} (眠)"
+                                elif attr == "POISON":
+                                    cell.font = Font(color="9788D1")
+                                    cell.value = f"{cell.value} (毒)"
