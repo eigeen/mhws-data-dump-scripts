@@ -5,7 +5,7 @@ import pandas as pd
 
 from library.item_db import ItemDB
 from library.excel_auto_fit import ExcelAutoFit
-import table_quest
+from table_quest import get_mission_data
 
 item_db = ItemDB("item_db.json")
 
@@ -84,7 +84,7 @@ def dump_common_reward(path):
 
 
 sheets = {
-    "MissionData": pd.DataFrame(table_quest.get_mission_data()),
+    "MissionData": get_mission_data(),
     "MissionRewardData": dump_mission_reward(
         "natives/STM/GameDesign/Mission/_UserData/_Reward/MissionRewardData.user.3.json"
     ),

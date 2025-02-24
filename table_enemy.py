@@ -11,7 +11,12 @@ from library.utils import is_guid_like, remove_enum_value, reindex_column
 text_db = load_text_db("texts_db.json")
 
 
-def dump_enemy_data(path: str, species_data: pd.DataFrame) -> pd.DataFrame:
+def dump_enemy_data(enemy_path: str, species_path: str) -> pd.DataFrame:
+    species_data = dump_species_data(species_path)
+    return _dump_enemy_data(enemy_path, species_data)
+
+
+def _dump_enemy_data(path: str, species_data: pd.DataFrame) -> pd.DataFrame:
     data = None
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -74,7 +79,7 @@ def main():
     species_data = dump_species_data(
         "natives/STM/GameDesign/Common/Enemy/EnemySpecies.user.3.json"
     )
-    enemy_data = dump_enemy_data(
+    enemy_data = _dump_enemy_data(
         "natives/STM/GameDesign/Common/Enemy/EnemyData.user.3.json", species_data
     )
     # 统计种族数量

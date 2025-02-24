@@ -1,21 +1,21 @@
 import json
-import os
 import re
-import csv
+import pandas as pd
 
 from library.text_db import load_text_db
+from library.utils import remove_enum_value
 
 text_db = load_text_db("texts_db.json")
-re_mission_id = re.compile(r"\[[\d-]+\]MISSION_(\d+)")
+re_mission_id = re.compile(r"MISSION_(\d+)")
 
 PATH_ROOT = "natives/STM/"
-USELESS_COL_NAMES = set([
+USELESS_COL_NAMES = {
     "MissionPrefab",
     "SetSGuideMsgDataList",
     "EmSetDataList",
     "EnemySetDataList",
-    "MissionGmSetPrefab"
-])
+    "MissionGmSetPrefab",
+}
 
 
 def get_mission_ud_paths() -> list[str]:
@@ -59,7 +59,7 @@ def sort_by_mission_id(obj: dict) -> int:
     return id1_num
 
 
-def get_mission_data() -> list[dict]:
+def get_mission_data() -> pd.DataFrame:
     mission_ud_paths = get_mission_ud_paths()
     mission_ud_paths = map(lambda path: PATH_ROOT + path + ".3.json", mission_ud_paths)
 
@@ -81,6 +81,7 @@ def get_mission_data() -> list[dict]:
 
             # try minify serial id
             value = minify_nested_obj(value)
+            value = remove_enum_value(value)
 
             if key == "SetLGuideMsgData":
                 id = value["app.user_data.MissionData.GuideMsgParts"]["SetMsgID"]
@@ -110,7 +111,8 @@ def get_mission_data() -> list[dict]:
         mission_datas.append(data)
 
     mission_datas.sort(key=sort_by_mission_id)
-    return mission_datas
+    df = pd.DataFrame(mission_datas)
+    return df
 
 
 # with open("Missions.csv", "w", encoding="utf-8", newline="") as f:

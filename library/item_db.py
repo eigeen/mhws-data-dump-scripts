@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 import json
+import re
+
+re_item_id = re.compile(r"\[[-\d]+\]ITEM_(\d+)")
 
 
 @dataclass
@@ -29,7 +32,12 @@ class ItemDB:
             )
 
     def get_entry_by_id(self, item_id: str) -> ItemEntry | None:
-        return self.items.get(item_id)
+        match = re_item_id.match(item_id)
+        if not match:
+            return self.items.get(item_id)
+        else:
+            return self.items.get(f"ITEM_{match.group(1)}")
+
 
 if __name__ == "__main__":
     item_db = ItemDB("item_db.json")

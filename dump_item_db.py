@@ -2,7 +2,7 @@ import json
 import os
 
 from library.text_db import load_text_db
-from library.utils import is_guid_like
+from library.utils import is_guid_like, remove_enum_value
 
 text_db = load_text_db("texts_db.json")
 
@@ -25,6 +25,8 @@ def dump_item_db(path: str) -> list[dict[str, str]]:
                     col_data = text
                 else:
                     col_data = ""
+            else:
+                col_data = remove_enum_value(col_data)
             entry[col_name] = col_data
         item_db.append(entry)
 
