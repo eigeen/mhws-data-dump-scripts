@@ -1,7 +1,5 @@
 import pandas as pd
 import os
-import shutil
-from PIL import Image
 
 import openpyxl
 from openpyxl.drawing.image import Image as OpenpyxlImage
@@ -11,23 +9,7 @@ from openpyxl.utils import get_column_letter
 from library.excel_auto_fit import ExcelAutoFit
 from table_equip import dump_weapon_data, get_weapon_types
 from library.utils import rare_enum_to_value, reindex_column, seperate_enum_value
-
-TEMP_DIR = "__temp"
-if not os.path.exists(TEMP_DIR):
-    os.makedirs(TEMP_DIR)
-
-
-def compress_image(src_path: str, dst_path: str):
-    try:
-        img = Image.open(src_path)
-        # 创建一个白色底色的新图像
-        white_bg = Image.new("RGB", img.size, (255, 255, 255))
-        # 将 PNG 图像粘贴到白色背景上
-        white_bg.paste(img, mask=img.split()[3])  # 使用 alpha 通道作为掩码
-        # 保存为 JPG 格式
-        white_bg.save(dst_path, "JPEG", quality=90)
-    except Exception as e:
-        print(f"压缩图像时出错: {e}")
+from library.image_utils import compress_png
 
 
 def apply_icons(
@@ -65,11 +47,12 @@ def apply_icons(
                     icon_dir,
                     icon_file_name,
                 )
-                compressed_path = os.path.join(TEMP_DIR, f"{icon_file_name[:-4]}.jpg")
                 # 压缩图片
-                compress_image(icon_path, compressed_path)
-                print(f"Compressed at {compressed_path}")
-                icon_path = compressed_path
+                try:
+                    icon_path = compress_png(icon_path)
+                except Exception as e:
+                    print(f"Error compressing {icon_path}: {e}")
+                    continue
 
                 if os.path.exists(icon_path):
                     img = OpenpyxlImage(icon_path)

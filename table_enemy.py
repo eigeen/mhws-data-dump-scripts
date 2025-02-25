@@ -6,6 +6,7 @@ from openpyxl.drawing.image import Image
 from openpyxl.styles import Alignment
 
 from library.excel_auto_fit import ExcelAutoFit
+from library.image_utils import compress_png
 from library.text_db import load_text_db
 from library.utils import is_guid_like, remove_enum_value, reindex_column
 
@@ -133,6 +134,13 @@ def main():
                     icon_path = os.path.join(
                         icon_dir, f"tex_EmIcon_{icon_id}_IMLM4.tex.241106027.png"
                     )
+                    # 压缩图片
+                    try:
+                        icon_path = compress_png(icon_path)
+                    except Exception as e:
+                        print(f"Error compressing {icon_path}: {e}")
+                        continue
+
                     if os.path.exists(icon_path):
                         print(f"Found icon {icon_id}")
                         img = Image(icon_path)
