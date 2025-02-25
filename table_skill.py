@@ -1,5 +1,6 @@
 import json
 import math
+import re
 import pandas as pd
 
 import openpyxl
@@ -13,6 +14,8 @@ from library.utils import is_guid_like, remove_enum_value, reindex_column
 
 item_db = ItemDB("item_db.json")
 text_db = load_text_db("texts_db.json")
+
+re_rare = re.compile(r"^RARE(\d+)$")
 
 
 def minify_nested_obj(obj: dict) -> str | dict:
@@ -45,6 +48,7 @@ def dump_skill_common_data(path: str) -> pd.DataFrame:
             if key.startswith("_"):
                 key = key[1:]
             value = minify_nested_obj(value)
+            value = remove_enum_value(value)
             if is_guid_like(str(value)):
                 text = text_db.get_text_by_guid(value)
                 if text:
@@ -72,10 +76,11 @@ def dump_skill_data(path: str, skill_common_data: pd.DataFrame) -> pd.DataFrame:
             if key.startswith("_"):
                 key = key[1:]
             value = minify_nested_obj(value)
+            value = remove_enum_value(value)
 
             if key == "openSkill":
                 for i, skill_id in enumerate(value):
-                    if skill_id != "[0]NONE":
+                    if skill_id != "NONE":
                         try:
                             skill_name = skill_common_data[
                                 skill_common_data["skillId"] == skill_id
@@ -110,14 +115,19 @@ def dump_accessory_data(path: str, skill_common_data: pd.DataFrame) -> pd.DataFr
             if key.startswith("_"):
                 key = key[1:]
             value = minify_nested_obj(value)
+            value = remove_enum_value(value)
 
             if key == "Skill":
                 for i, skill_id in enumerate(value):
-                    if skill_id != "[0]NONE":
+                    if skill_id != "NONE":
                         skill_name = skill_common_data[
                             skill_common_data["skillId"] == skill_id
                         ]["skillName"].iloc[0]
                         value[i] = skill_name
+            if key == "Rare":
+                match = re_rare.match(value)
+                if match:
+                    value = int(match.group(1)) + 1 
             if is_guid_like(str(value)):
                 text = text_db.get_text_by_guid(value)
                 if text:
@@ -152,6 +162,7 @@ def dump_accessory_ratio_data(
             if key.startswith("_"):
                 key = key[1:]
             value = minify_nested_obj(value)
+            value = remove_enum_value(value)
             row[key] = value
         acc_prob_table.append(row)
 
@@ -163,6 +174,7 @@ def dump_accessory_ratio_data(
             if key.startswith("_"):
                 key = key[1:]
             value = minify_nested_obj(value)
+            value = remove_enum_value(value)
 
             # item = item_db.get_entry_by_id(str(value))
             # if item:
@@ -292,6 +304,8 @@ def export_percent_pretty(accessory_percent_data: pd.DataFrame):
 
 
 if __name__ == "__main__":
+    # text_db.set_global_default_lang(13)
+
     skill_common_data = dump_skill_common_data(
         "natives/STM/GameDesign/Common/Equip/SkillCommonData.user.3.json"
     )

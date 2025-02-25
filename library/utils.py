@@ -4,7 +4,8 @@ import pandas as pd
 re_guid_like = re.compile(
     r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
 )
-re_enum_value = re.compile(r"^\[.*?\](.*)$")
+re_enum_value = re.compile(r"^\[(.*?)\](.*)$")
+re_rare = re.compile(r"^RARE(\d+)$")
 
 
 def is_guid_like(text: str) -> bool:
@@ -35,7 +36,24 @@ def remove_enum_value(text: object) -> str | object:
         return text
     match = re_enum_value.match(text)
     if match:
-        return match.group(1)
+        return match.group(2)
+    return text
+
+
+# 将枚举字符串拆分成枚举值和枚举名
+def seperate_enum_value(text: str) -> tuple[int, str] | None:
+    if not isinstance(text, str):
+        return None
+    match = re_enum_value.match(text)
+    if match:
+        return int(match.group(1)), match.group(2)
+    return None
+
+
+def rare_enum_to_value(text: str) -> str | int:
+    match = re_rare.match(text)
+    if match:
+        return int(match.group(1)) + 1
     return text
 
 

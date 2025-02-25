@@ -2,6 +2,7 @@ import json
 import re
 import pandas as pd
 
+from library.excel_auto_fit import ExcelAutoFit
 from library.text_db import load_text_db
 from library.utils import remove_enum_value
 
@@ -114,6 +115,16 @@ def get_mission_data() -> pd.DataFrame:
     df = pd.DataFrame(mission_datas)
     return df
 
+
+if __name__ == "__main__":
+    # text_db.set_global_default_lang(1)
+    
+    mission_data = get_mission_data()
+
+    auto_fit = ExcelAutoFit()
+    with pd.ExcelWriter("Missions.xlsx") as writer:
+        mission_data.to_excel(writer, sheet_name="Missions")
+        auto_fit.style_workbook(writer.book)
 
 # with open("Missions.csv", "w", encoding="utf-8", newline="") as f:
 #     writer = csv.DictWriter(f, fieldnames=mission_datas[0].keys())

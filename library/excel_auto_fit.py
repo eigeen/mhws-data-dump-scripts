@@ -20,7 +20,9 @@ class ExcelAutoFit:
             num_str_dict[A_AZ.index(i) + 1] = i
         return num_str_dict
 
-    def style_sheet(self, sheet):
+    def style_sheet(self, sheet, max_width: float | None = None):
+        if not max_width:
+            max_width = self.MAX_WIDTH
         # 获取最大行数与最大列数
         max_column = sheet.max_column
         max_row = sheet.max_row
@@ -60,17 +62,19 @@ class ExcelAutoFit:
         for key, value in max_column_dict.items():
             if value < self.MIN_WIDTH:
                 value = self.MIN_WIDTH
-            elif value > self.MAX_WIDTH:
-                value = self.MAX_WIDTH
+            elif value > max_width:
+                value = max_width
             try:
                 sheet.column_dimensions[num_str_dict[key]].width = value
             except Exception as e:
                 print(f"AutoFit error: {e}, key: {key}, value: {value}")
 
-    def style_workbook(self, workbook: openpyxl.Workbook):
+    def style_workbook(
+        self, workbook: openpyxl.Workbook, max_width: float | None = None
+    ):
         for sheet_name in workbook.sheetnames:
             sheet = workbook[sheet_name]
-            self.style_sheet(sheet)
+            self.style_sheet(sheet, max_width=max_width)
 
     # 自适应列宽
     def style_excel(self, excel_name: str):

@@ -5,6 +5,8 @@ import re
 re_xref_id = re.compile(r"<REF (.*?)>")
 re_xref_em_id = re.compile(r"<EMID (.*?)>")
 
+g_default_lang = 13
+
 
 @dataclass
 class DBEntry:
@@ -13,7 +15,9 @@ class DBEntry:
     belongs_to: str
     contents: dict[str, str]
 
-    def get_text(self, lang_id: int = 13) -> str:
+    def get_text(self, lang_id: int | None = None) -> str:
+        if lang_id is None:
+            lang_id = g_default_lang
         return self.contents.get(str(lang_id))
 
 
@@ -21,7 +25,7 @@ class TextDB:
     def __init__(self, entries: dict[str, DBEntry]):
         self.db_entries = entries
         self.index_name = {}
-        self.default_lang = 13
+        self.default_lang = None
         self._create_index_name()
         self._filter_data()
 
@@ -34,8 +38,17 @@ class TextDB:
             for lang_id, text in entry.contents.items():
                 entry.contents[lang_id] = text.replace("\n", "").replace("\r", "")
 
+    def _get_default_lang(self):
+        if self.default_lang is not None:
+            return self.default_lang
+        return g_default_lang
+
     def set_default_lang(self, lang_id: int):
         self.default_lang = lang_id
+
+    def set_global_default_lang(self, lang_id: int):
+        global g_default_lang
+        g_default_lang = lang_id
 
     def get_entry_by_name(self, name: str) -> DBEntry:
         guid = self.index_name.get(name)
@@ -46,15 +59,15 @@ class TextDB:
     def get_entry_by_guid(self, guid: str) -> DBEntry:
         return self.db_entries.get(guid)
 
-    def get_text_by_guid(self, guid: str, lang_id: int = None) -> str:
+    def get_text_by_guid(self, guid: str, lang_id: int | None = None) -> str:
         if lang_id is None:
-            lang_id = self.default_lang
+            lang_id = self._get_default_lang()
         entry = self.db_entries.get(guid)
         if entry is None:
             return None
         return entry.contents.get(str(lang_id))
 
-    def get_text_by_name(self, name: str, lang_id: int = None) -> str:
+    def get_text_by_name(self, name: str, lang_id: int | None = None) -> str:
         entry = self.get_entry_by_name(name)
         if entry is None:
             return None

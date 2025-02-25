@@ -1,5 +1,6 @@
 import json
 import pandas as pd
+from openpyxl.styles import Alignment
 
 from library.excel_auto_fit import ExcelAutoFit
 from library.text_db import load_text_db
@@ -8,6 +9,7 @@ from library.utils import (
     minify_nested_serial,
     remove_enum_value,
     reindex_column,
+    rare_enum_to_value,
 )
 from library.rare import apply_rare_colors
 from table_skill import dump_skill_common_data
@@ -96,6 +98,9 @@ def _dump_weapon_data(
                 continue
 
             value = minify_nested_serial(value)
+            if not keep_serial_id:
+                value = remove_enum_value(value)
+
             # 处理Skill
             if key == "Skill":
                 for i, skill in enumerate(value):
@@ -128,9 +133,6 @@ def _dump_weapon_data(
                         value[i] = 3
                     else:
                         print(f"Unknown level: {level}")
-
-            if not keep_serial_id:
-                value = remove_enum_value(value)
 
             row[key] = value
         table.append(row)
@@ -221,6 +223,7 @@ def _dump_armor_data(
                 key = key[1:]
 
             value = minify_nested_serial(value)
+            value = remove_enum_value(value)
             # 处理Skill
             if key == "Skill":
                 for i, skill in enumerate(value):
@@ -239,7 +242,6 @@ def _dump_armor_data(
                     value = text.replace("\n", "").replace("\r", "")
                 else:
                     value = ""
-            value = remove_enum_value(value)
             # 处理SlotLevel
             if key == "SlotLevel":
                 for i, level in enumerate(value):
@@ -333,6 +335,8 @@ def dump_armor_series_data(path: str) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
+    # text_db.set_global_default_lang(1)
+
     armor_data = dump_armor_data()
     sheets = dump_weapon_data()
     with pd.ExcelWriter("EquipCollection.xlsx") as writer:
@@ -349,3 +353,26 @@ if __name__ == "__main__":
 
         print("Applying rare colors...")
         apply_rare_colors(writer.book)
+
+        align_wrap = Alignment(wrap_text=True)
+        for sheet_name in writer.sheets:
+            sheet = writer.sheets[sheet_name]
+            # RARE修正
+            for row in range(1, sheet.max_row + 1):
+                for col in range(1, sheet.max_column + 1):
+                    cell = sheet.cell(row=row, column=col)
+                    if isinstance(cell.value, str):
+                        cell.value = rare_enum_to_value(cell.value)
+            # Explain列添加自动换行
+            # 查找Explain列
+            explain_col = None
+            for col in range(1, sheet.max_column + 1):
+                cell = sheet.cell(row=1, column=col)
+                if cell.value == "Explain":
+                    explain_col = col
+                    break
+            if explain_col is not None:
+                for row in range(2, sheet.max_row + 1):
+                    cell = sheet.cell(row=row, column=explain_col)
+                    if isinstance(cell.value, str):
+                        cell.alignment = align_wrap

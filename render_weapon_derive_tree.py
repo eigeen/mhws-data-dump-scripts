@@ -249,6 +249,8 @@ def dump_weapon_derive_tree(
 
 
 if __name__ == "__main__":
+    # text_db.set_global_default_lang(1)
+    
     weapon_types = get_weapon_types()
 
     weapon_series_data = dump_weapon_series_data(
@@ -283,7 +285,7 @@ if __name__ == "__main__":
 
             # 设置签名
             sheet.cell(row=max_rows + 1, column=1).value = (
-                "Created by openpyxl  AUTO-GENERATED"
+                "Created by E - AUTO-GENERATED SHEETS"
             )
 
             # 设置宽高
