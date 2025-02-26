@@ -13,6 +13,7 @@ from library.utils import (
 )
 from library.rare import apply_rare_colors
 from table_skill import dump_skill_common_data
+from parse_whistle_tone import ToneParser
 
 text_db = load_text_db("texts_db.json")
 
@@ -158,6 +159,32 @@ def _dump_weapon_data(
     df = reindex_column(df, "SkillAndLevel", next_to="SlotLevel")
 
     df = reindex_column(df, ["ModelId", "CustomModelId"], to_end=True)
+
+    # 处理笛子旋律
+    if weapon_type == "whistle":
+        parser = ToneParser()
+        parser.set_text_db(text_db)
+        parser.load_tone_table(
+            "natives/STM/GameDesign/Player/ActionData/Wp05/UserData/Wp05MusicSkillToneTable.user.3.json"
+        )
+        parser.load_tone_color_table(
+            "natives/STM/GameDesign/Player/ActionData/Wp05/UserData/Wp05MusicSkillToneColorTable.user.3.json"
+        )
+        parser.load_music_skill_data(
+            "natives/STM/GameDesign/Common/Player/ActionGuide/MusicSkillData_Wp05.user.3.json"
+        )
+        parser.set_whistle_data(df)
+        df = parser.parse()
+        df.drop(
+            columns=[
+                "MusicSkills",
+                "Wp05UniqueType",
+                "Wp05MusicSkillHighFreqType",
+                "Wp05HibikiSkillType",
+            ],
+            inplace=True,
+        )
+        df = reindex_column(df, "MusicSkillNames", next_to="SkillAndLevel")
 
     return df
 
