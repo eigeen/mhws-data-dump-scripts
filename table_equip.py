@@ -141,7 +141,9 @@ def process_loading_bin(
 
 # 将弩炮弹药等级表转换为可用的弹药名字列表
 def process_gun_shell(
-    shell_lv_list: list[str], enum_internal: dict[str, dict]
+    shell_lv_list: list[str],
+    enum_internal: dict[str, dict],
+    keep_none_level: bool = False,
 ) -> list[str]:
     if len(shell_lv_list) != 20:
         raise ValueError("Shell active list length should be 20")
@@ -150,7 +152,7 @@ def process_gun_shell(
     shell_type_enum_inv = {v: k for k, v in shell_type_enum.items()}
     shell_names = []
     for idx, shell_lv in enumerate(shell_lv_list):
-        if shell_lv == "NONE":
+        if not keep_none_level and shell_lv == "NONE":
             shell_names.append(None)
             continue
         shell_type = shell_type_enum_inv.get(idx)
@@ -345,7 +347,9 @@ def _dump_weapon_data(
         df["ShellName"] = None
         shell_lv_list_all = df["ShellLv"]
         for row_idx, shell_lv_list in shell_lv_list_all.items():
-            shell_name_list = process_gun_shell(shell_lv_list, enum_internal)
+            shell_name_list = process_gun_shell(
+                shell_lv_list, enum_internal, keep_none_level=True
+            )
             df.at[row_idx, "ShellName"] = shell_name_list
 
         # 合并Shell名字，等级和数量列
@@ -353,7 +357,7 @@ def _dump_weapon_data(
             if lv_name.startswith("SL_"):
                 return int(lv_name[3:]) + 1
             else:
-                raise ValueError(f"Unknown shell level: {lv_name}")
+                return 0
 
         df["MergedShellInfo"] = None
         for row_idx in df.index:
@@ -368,7 +372,7 @@ def _dump_weapon_data(
             for shell_name, shell_lv, shell_num, is_rappid in zip(
                 shell_name_list, shell_lv_list, shell_num_list, is_rappid_list
             ):
-                if shell_name is None or shell_lv == "NONE" or shell_num <= 0:
+                if shell_name is None or shell_num <= 0:
                     continue
                 formatted = f"{shell_name} Lv{_extract_shell_lv(shell_lv)} x{shell_num}"
                 if is_rappid:
