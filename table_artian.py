@@ -5,7 +5,8 @@ from library.excel_auto_fit import ExcelAutoFit
 from library.item_db import ItemDB
 from library.text_db import load_text_db
 from library.utils import minify_nested_serial, remove_enum_value
-from table_equip import dump_weapon_data
+from table_equip import dump_weapon_data, process_loading_bin
+from table_general import load_enum_internal
 
 item_db = ItemDB("item_db.json")
 text_db = load_text_db("texts_db.json")
@@ -41,7 +42,10 @@ def dump_artian_judge(path: str) -> pd.DataFrame:
 
 
 def dump_artian_performance(
-    path: str, bonus_data: pd.DataFrame, weapon_sheets: dict[str, pd.DataFrame]
+    path: str,
+    bonus_data: pd.DataFrame,
+    weapon_sheets: dict[str, pd.DataFrame],
+    enum_internal: dict[str, dict],
 ) -> pd.DataFrame:
     data = None
     with open(path, "r", encoding="utf-8") as f:
@@ -55,16 +59,30 @@ def dump_artian_performance(
         for key, value in cData.items():
             if key.startswith("_"):
                 key = key[1:]
+            if key == "Wp05UniqueType":
+                pass
             value = minify_nested_serial(value)
             value = remove_enum_value(value)
 
             text = text_db.get_text_by_guid(str(value))
             if text:
                 value = text.replace("\n", "").replace("\r", "")
-                
-            if key == "Wp05UniqueType":
-                pass
-            
+
+            if key == "IsLoaded":
+                # 重新排序
+                # sb capcom
+                value = [
+                    value[5],  # CLOSE
+                    value[6],  # STRONG
+                    value[7],  # PENETRATE
+                    value[1],  # PARALYSE
+                    value[0],  # POISON
+                    value[2],  # SLEEP
+                    value[3],  # BLAST
+                    value[4],  # STAMINA
+                ]
+                value = process_loading_bin(value, enum_internal)
+
             row[key] = value
         table.append(row)
 
@@ -159,6 +177,8 @@ def dump_artian_weapon_type(path: str, parts_data: pd.DataFrame) -> pd.DataFrame
 
 
 if __name__ == "__main__":
+    enum_internal = load_enum_internal()
+
     bonus_data = dump_artian_bonus(
         "natives/STM/GameDesign/Facility/ArtianBonusData.user.3.json"
     )
@@ -173,6 +193,7 @@ if __name__ == "__main__":
             "natives/STM/GameDesign/Facility/ArtianPerformanceData.user.3.json",
             bonus_data,
             weapon_sheets,
+            enum_internal,
         ),
         "ArtianBonusData": bonus_data,
         "ArtianPartsData": parts_data,

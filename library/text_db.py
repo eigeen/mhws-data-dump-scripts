@@ -6,6 +6,7 @@ re_xref_id = re.compile(r"<REF (.*?)>")
 re_xref_em_id = re.compile(r"<EMID (.*?)>")
 
 g_default_lang = 13
+g_text_db = None
 
 
 @dataclass
@@ -46,10 +47,6 @@ class TextDB:
     def set_default_lang(self, lang_id: int):
         self.default_lang = lang_id
 
-    def set_global_default_lang(self, lang_id: int):
-        global g_default_lang
-        g_default_lang = lang_id
-
     def get_entry_by_name(self, name: str) -> DBEntry:
         guid = self.index_name.get(name)
         if guid is None:
@@ -72,6 +69,22 @@ class TextDB:
         if entry is None:
             return None
         return self.get_text_by_guid(entry.guid, lang_id)
+
+    def set_global_default_lang(lang_id: int):
+        global g_default_lang
+        g_default_lang = lang_id
+
+
+def set_global_text_db(db: TextDB):
+    global g_text_db
+    g_text_db = db
+
+
+def get_global_text_db() -> TextDB:
+    global g_text_db
+    if g_text_db is None:
+        g_text_db = load_text_db("texts_db.json")
+    return g_text_db
 
 
 def load_text_db(db_json_path: str) -> TextDB:

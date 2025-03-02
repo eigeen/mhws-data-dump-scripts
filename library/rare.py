@@ -2,6 +2,7 @@ import re
 import openpyxl
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font, Color
+from library.utils import rare_enum_to_value
 
 RARE_COLORS = {
     0: "969696",
@@ -62,7 +63,7 @@ def _apply_opacity(color, opacity):
     return f"{mixed_r:02X}{mixed_g:02X}{mixed_b:02X}"
 
 
-def apply_rare_colors(wb: Workbook):
+def apply_fix_rare_colors(wb: Workbook):
     for sheet in wb.sheetnames:
         ws = wb[sheet]
         max_column = ws.max_column
@@ -81,6 +82,7 @@ def apply_rare_colors(wb: Workbook):
                         cell.fill = PatternFill(
                             start_color=color, end_color=color, fill_type="solid"
                         )
+                        cell.value = rare_enum_to_value(cell.value)
         # cell = ws.cell(row=i+1, column=1, value=f"Background: {color}")
         # fill = PatternFill(start_color=color, end_color=color, fill_type="solid")
         # cell.fill = fill

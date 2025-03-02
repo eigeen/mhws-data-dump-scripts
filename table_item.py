@@ -3,7 +3,7 @@ import pandas as pd
 from openpyxl.styles import Alignment
 
 from library.excel_auto_fit import ExcelAutoFit
-from library.rare import apply_rare_colors
+from library.rare import apply_fix_rare_colors
 from library.text_db import load_text_db
 from library.item_db import ItemDB
 from library.utils import is_guid_like, rare_enum_to_value, remove_enum_value
@@ -101,7 +101,7 @@ if __name__ == "__main__":
             data.to_excel(writer, sheet_name=sheet_name, index=False)
 
         auto_fit.style_workbook(writer.book)
-        apply_rare_colors(writer.book)
+        apply_fix_rare_colors(writer.book)
 
         for sheet_name in writer.sheets:
             sheet = writer.sheets[sheet_name]

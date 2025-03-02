@@ -3,6 +3,7 @@ import json
 import re
 
 re_item_id = re.compile(r"\[[-\d]+\]ITEM_(\d+)")
+g_item_db = None
 
 
 @dataclass
@@ -37,6 +38,13 @@ class ItemDB:
             return self.items.get(item_id)
         else:
             return self.items.get(f"ITEM_{match.group(1)}")
+
+
+def get_global_item_db():
+    global g_item_db
+    if not g_item_db:
+        g_item_db = ItemDB("item_db.json")
+    return g_item_db
 
 
 if __name__ == "__main__":

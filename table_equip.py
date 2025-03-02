@@ -3,7 +3,8 @@ import pandas as pd
 from openpyxl.styles import Alignment
 
 from library.excel_auto_fit import ExcelAutoFit
-from library.text_db import load_text_db
+from library.item_db import get_global_item_db
+from library.text_db import get_global_text_db
 from library.utils import (
     is_guid_like,
     minify_nested_serial,
@@ -11,11 +12,24 @@ from library.utils import (
     reindex_column,
     rare_enum_to_value,
 )
-from library.rare import apply_rare_colors
+from library.rare import apply_fix_rare_colors
 from table_skill import dump_skill_common_data
 from parse_whistle_tone import ToneParser
+from table_general import dump_enum_maker, load_enum_internal
 
-text_db = load_text_db("texts_db.json")
+text_db = get_global_text_db()
+item_db = get_global_item_db()
+
+BOTTLE_ENUM_TO_ITEM_ID = {
+    "CLOSE": "ITEM_0702",
+    "STRONG": "ITEM_0703",
+    "PENETRATE": "ITEM_0704",
+    "PARALYSE": "ITEM_0705",
+    "POISON": "ITEM_0706",
+    "SLEEP": "ITEM_0707",
+    "BLAST": "ITEM_0708",
+    "STAMINA": "ITEM_0709",
+}
 
 
 def get_weapon_types() -> dict[str, int]:
@@ -37,11 +51,49 @@ def get_weapon_types() -> dict[str, int]:
     }
 
 
+# 将弓箭瓶子list转换为可用的瓶子名字列表
+def process_loading_bin(
+    loading_bin: list[bool], enum_internal: dict[str, dict]
+) -> list[str]:
+    # 弓箭瓶子处理
+    bottle_type_enum = enum_internal["app.Wp11Def.BOTTLE_TYPE"]
+    # 反转字典并-1，int->str
+    bottle_type_enum_inv = {(v - 1): k for k, v in bottle_type_enum.items()}
+    bottle_names = []
+    for idx, bottle_type_on in enumerate(loading_bin):
+        if not bottle_type_on:
+            continue
+        bottle_type = bottle_type_enum_inv.get(idx)
+        if bottle_type is None:
+            print(f"Unknown bottle type: {bottle_type_on}")
+            bottle_type = "Unknown"
+        bottle_name = get_bow_bottle_name(bottle_type)
+        bottle_names.append(bottle_name)
+
+    return bottle_names
+
+
+def get_bow_bottle_name(enum_name: str) -> str | None:
+    item_id = BOTTLE_ENUM_TO_ITEM_ID.get(enum_name.upper())
+    if not item_id:
+        return None
+    item_entry = item_db.get_entry_by_id(item_id)
+    if not item_entry:
+        return None
+    return item_entry.raw_name
+
+
+def dump_armor_series_enum_maker() -> pd.DataFrame:
+    path = "natives/STM/GameDesign/Player/EnumMaker/ArmorSeries.user.3.json"
+    return dump_enum_maker(path)
+
+
 def _dump_weapon_data(
     path: str,
     weapon_type: str,
     weapon_types: dict[str, int],
     skill_common_data: pd.DataFrame,
+    enum_internal: dict[str, dict],
     keep_serial_id: bool = False,
 ) -> pd.DataFrame:
     data = None
@@ -97,6 +149,10 @@ def _dump_weapon_data(
                 "TakumiValList",
             }:
                 continue
+            if weapon_type == "bow" and key == "isLoadingBin":
+                # 弓箭瓶子处理
+                bottle_names = process_loading_bin(value, enum_internal)
+                value = bottle_names
 
             value = minify_nested_serial(value)
             if not keep_serial_id:
@@ -161,7 +217,7 @@ def _dump_weapon_data(
     df = reindex_column(df, ["ModelId", "CustomModelId"], to_end=True)
 
     # 处理笛子旋律
-    if weapon_type == "whistle":
+    if weapon_type == "whistle" and not keep_serial_id:
         parser = ToneParser()
         parser.set_text_db(text_db)
         parser.load_tone_table(
@@ -179,8 +235,6 @@ def _dump_weapon_data(
             columns=[
                 "MusicSkills",
                 "Wp05UniqueType",
-                "Wp05MusicSkillHighFreqType",
-                "Wp05HibikiSkillType",
             ],
             inplace=True,
         )
@@ -204,6 +258,7 @@ def dump_weapon_data(keep_serial_id: bool = False) -> dict[str, pd.DataFrame]:
     skill_common_data = dump_skill_common_data(
         "natives/STM/GameDesign/Common/Equip/SkillCommonData.user.3.json"
     )
+    enum_internal = load_enum_internal()
 
     sheets = {}
     for weapon_type, path in weapon_paths.items():
@@ -212,6 +267,7 @@ def dump_weapon_data(keep_serial_id: bool = False) -> dict[str, pd.DataFrame]:
             weapon_type.lower(),
             weapon_types_lower,
             skill_common_data,
+            enum_internal,
             keep_serial_id=keep_serial_id,
         )
         sheets[weapon_type] = df
@@ -282,16 +338,21 @@ def _dump_armor_data(
                         value[i] = 3
                     else:
                         print(f"Unknown level: {level}")
-            # 处理Series
-            if key == "Series":
-                v = armor_series_data.loc[armor_series_data["Series"] == value, "Name"]
-                if len(v) > 0:
-                    value = v.iloc[0]
 
             row[key] = value
         table.append(row)
 
     df = pd.DataFrame(table)
+    # Series列改成名字，SeriesId改成原Series
+    df["SeriesId"] = df["Series"]
+    series_names = []
+    for series_id in df["SeriesId"]:
+        v = armor_series_data.loc[armor_series_data["Series"] == series_id, "Name"]
+        if len(v) > 0:
+            series_names.append(v.iloc[0])
+        else:
+            series_names.append(None)
+    df["Series"] = series_names
     # 拆分skill列
     skill_names = df["Skill"]
     skill_levels = df["SkillLevel"]
@@ -365,6 +426,8 @@ if __name__ == "__main__":
     # text_db.set_global_default_lang(1)
 
     armor_data = dump_armor_data()
+    armor_data.drop(columns=["SeriesId"], inplace=True)
+
     sheets = dump_weapon_data()
     with pd.ExcelWriter("EquipCollection.xlsx") as writer:
         armor_data.to_excel(writer, sheet_name="Armor", index=False)
@@ -379,7 +442,7 @@ if __name__ == "__main__":
         autofit.style_workbook(writer.book)
 
         print("Applying rare colors...")
-        apply_rare_colors(writer.book)
+        apply_fix_rare_colors(writer.book)
 
         align_wrap = Alignment(wrap_text=True)
         for sheet_name in writer.sheets:
