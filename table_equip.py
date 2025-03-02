@@ -15,7 +15,7 @@ from library.utils import (
 from library.rare import apply_fix_rare_colors
 from table_skill import dump_skill_common_data
 from parse_whistle_tone import ToneParser
-from table_general import dump_enum_maker, load_enum_internal
+from table_general import dump_enum_maker, load_enum_internal, dump_user3_data_general
 
 text_db = get_global_text_db()
 item_db = get_global_item_db()
@@ -30,6 +30,42 @@ BOTTLE_ENUM_TO_ITEM_ID = {
     "BLAST": "ITEM_0708",
     "STAMINA": "ITEM_0709",
 }
+GUN_SHELL_TYPE_TO_ITEM_ID = {
+    "NORMAL": "ITEM_0037",
+    "PENETRATE": "ITEM_0040",
+    "SHOT_GUN": "ITEM_0043",
+    "GRENADE": "ITEM_0046",
+    "MORTAR": "ITEM_0049",
+    "SLASH": "ITEM_0068",
+    "RYUUGEKI": "ITEM_0180",  # 龙击弹
+    "FIRE": "ITEM_0052",
+    "WATER": "ITEM_0053",
+    "ELEC": "ITEM_0054",
+    "ICE": "ITEM_0055",
+    "DRAGON": "ITEM_0056",
+    "POISON": "ITEM_0057",
+    "PARALYSE": "ITEM_0059",
+    "SLEEP": "ITEM_0061",
+    "KIJIN": "ITEM_0439",  # 鬼人弹
+    "KOUKA": "ITEM_0440",  # 硬化弹
+    "HEAL": "ITEM_0441",
+    "STAMINA": "ITEM_0443",
+    "CAPTURE": "ITEM_0442",
+}
+SLASH_AEX_BIN_TYPE_TO_NAME_ID = {
+    "POWER": "RefStatus_0006_003_01_01",
+    "ELEMENT": "RefStatus_0006_003_01_02",
+    "DRAGON": "RefStatus_0006_003_01_03",
+    "STAMINA": "RefStatus_0006_003_01_06",
+    "PARALYSE": "RefStatus_0006_003_01_05",
+    "POISON": "RefStatus_0006_003_01_04",
+}
+# WHISTLE_HIGH_FREQ_TYPE_TO_NAME_ID = {
+
+# }
+# WHISTLE_HIBIKI_TYPE_TO_NAME_ID = {
+
+# }
 
 
 def get_weapon_types() -> dict[str, int]:
@@ -51,10 +87,40 @@ def get_weapon_types() -> dict[str, int]:
     }
 
 
+def get_bow_bottle_name(enum_name: str) -> str | None:
+    item_id = BOTTLE_ENUM_TO_ITEM_ID.get(enum_name.upper())
+    if not item_id:
+        return None
+    item_entry = item_db.get_entry_by_id(item_id)
+    if not item_entry:
+        return None
+    return item_entry.raw_name
+
+
+def get_gun_shell_type_name(enum_name: str) -> str | None:
+    item_id = GUN_SHELL_TYPE_TO_ITEM_ID.get(enum_name.upper())
+    if not item_id:
+        return None
+    item_entry = item_db.get_entry_by_id(item_id)
+    if not item_entry:
+        return None
+    return item_entry.raw_name
+
+
+def get_slash_axe_bin_name(bin_type: str) -> str | None:
+    name_id = SLASH_AEX_BIN_TYPE_TO_NAME_ID.get(bin_type.upper())
+    if not name_id:
+        return None
+    name = text_db.get_text_by_name(name_id)
+    return name
+
+
 # 将弓箭瓶子list转换为可用的瓶子名字列表
 def process_loading_bin(
     loading_bin: list[bool], enum_internal: dict[str, dict]
 ) -> list[str]:
+    if len(loading_bin) != 8:
+        raise ValueError("Loading bin length should be 8")
     # 弓箭瓶子处理
     bottle_type_enum = enum_internal["app.Wp11Def.BOTTLE_TYPE"]
     # 反转字典并-1，int->str
@@ -73,14 +139,29 @@ def process_loading_bin(
     return bottle_names
 
 
-def get_bow_bottle_name(enum_name: str) -> str | None:
-    item_id = BOTTLE_ENUM_TO_ITEM_ID.get(enum_name.upper())
-    if not item_id:
-        return None
-    item_entry = item_db.get_entry_by_id(item_id)
-    if not item_entry:
-        return None
-    return item_entry.raw_name
+# 将弩炮弹药等级表转换为可用的弹药名字列表
+def process_gun_shell(
+    shell_lv_list: list[str], enum_internal: dict[str, dict]
+) -> list[str]:
+    if len(shell_lv_list) != 20:
+        raise ValueError("Shell active list length should be 20")
+    shell_type_enum = enum_internal["app.WeaponGunDef.SHELL_TYPE"]
+    # 反转字典，int->str
+    shell_type_enum_inv = {v: k for k, v in shell_type_enum.items()}
+    shell_names = []
+    for idx, shell_lv in enumerate(shell_lv_list):
+        if shell_lv == "NONE":
+            shell_names.append(None)
+            continue
+        shell_type = shell_type_enum_inv.get(idx)
+        if shell_type is None:
+            print(f"Unknown shell type: {shell_lv}")
+            shell_names.append(None)
+            continue
+        shell_name = get_gun_shell_type_name(shell_type)
+        shell_names.append(shell_name)
+
+    return shell_names
 
 
 def dump_armor_series_enum_maker() -> pd.DataFrame:
@@ -94,6 +175,8 @@ def _dump_weapon_data(
     weapon_types: dict[str, int],
     skill_common_data: pd.DataFrame,
     enum_internal: dict[str, dict],
+    whistle_high_freq_data: pd.DataFrame,
+    whistle_hibiki_data: pd.DataFrame,
     keep_serial_id: bool = False,
 ) -> pd.DataFrame:
     data = None
@@ -149,17 +232,13 @@ def _dump_weapon_data(
                 "TakumiValList",
             }:
                 continue
-            if weapon_type == "bow" and key == "isLoadingBin":
-                # 弓箭瓶子处理
-                bottle_names = process_loading_bin(value, enum_internal)
-                value = bottle_names
 
             value = minify_nested_serial(value)
             if not keep_serial_id:
                 value = remove_enum_value(value)
 
-            # 处理Skill
             if key == "Skill":
+                # 处理Skill
                 for i, skill in enumerate(value):
                     if skill.find("NONE") != -1:
                         continue
@@ -168,6 +247,27 @@ def _dump_weapon_data(
                     ]
                     if len(skill_name) > 0:
                         value[i] = skill_name.values[0]
+            elif key == "isLoadingBin":
+                # 弓箭瓶子处理
+                bottle_names = process_loading_bin(value, enum_internal)
+                value = bottle_names
+            elif key == "Wp08BinType":
+                # 斩斧瓶子
+                value = get_slash_axe_bin_name(value)
+            elif key == "Wp05MusicSkillHighFreqType":
+                # 笛子
+                v = whistle_high_freq_data.loc[
+                    whistle_high_freq_data["HighFreqType"] == value, "SkillName"
+                ]
+                if len(v) > 0:
+                    value = v.values[0]
+            elif key == "Wp05HibikiSkillType":
+                # 笛子
+                v = whistle_hibiki_data.loc[
+                    whistle_hibiki_data["HiblkiSkillType"] == value, "SkillName"
+                ]
+                if len(v) > 0:
+                    value = v.values[0]
 
             if is_guid_like(str(value)):
                 # process guids
@@ -240,6 +340,47 @@ def _dump_weapon_data(
         )
         df = reindex_column(df, "MusicSkillNames", next_to="SkillAndLevel")
 
+    # 弩炮弹药处理
+    if weapon_type in {"heavybowgun", "lightbowgun"}:
+        df["ShellName"] = None
+        shell_lv_list_all = df["ShellLv"]
+        for row_idx, shell_lv_list in shell_lv_list_all.items():
+            shell_name_list = process_gun_shell(shell_lv_list, enum_internal)
+            df.at[row_idx, "ShellName"] = shell_name_list
+
+        # 合并Shell名字，等级和数量列
+        def _extract_shell_lv(lv_name: str) -> int:
+            if lv_name.startswith("SL_"):
+                return int(lv_name[3:]) + 1
+            else:
+                raise ValueError(f"Unknown shell level: {lv_name}")
+
+        df["MergedShellInfo"] = None
+        for row_idx in df.index:
+            shell_name_list = df.at[row_idx, "ShellName"]
+            shell_lv_list = df.at[row_idx, "ShellLv"]
+            shell_num_list = df.at[row_idx, "ShellNum"]
+            is_rappid_list = [False for _ in shell_lv_list]
+            if "IsRappid" in df.columns:
+                # 轻弩速射
+                is_rappid_list = df.at[row_idx, "IsRappid"]
+            merged = []
+            for shell_name, shell_lv, shell_num, is_rappid in zip(
+                shell_name_list, shell_lv_list, shell_num_list, is_rappid_list
+            ):
+                if shell_name is None or shell_lv == "NONE" or shell_num <= 0:
+                    continue
+                formatted = f"{shell_name} Lv{_extract_shell_lv(shell_lv)} x{shell_num}"
+                if is_rappid:
+                    formatted += " ↑"
+                merged.append(formatted)
+            df.at[row_idx, "MergedShellInfo"] = merged
+
+        df = reindex_column(df, "MergedShellInfo", next_to="MainShell")
+        df.drop(columns=["ShellName", "ShellLv", "ShellNum"], inplace=True)
+        if "IsRappid" in df.columns:
+            df.drop(columns=["IsRappid"], inplace=True)
+
     return df
 
 
@@ -260,6 +401,15 @@ def dump_weapon_data(keep_serial_id: bool = False) -> dict[str, pd.DataFrame]:
     )
     enum_internal = load_enum_internal()
 
+    whistle_high_freq_data = dump_user3_data_general(
+        "natives/STM/GameDesign/Common/Player/ActionGuide/HighFreqData_Wp05.user.3.json",
+        "app.user_data.HighFreqData_Wp05",
+    )
+    whistle_hibiki_data = dump_user3_data_general(
+        "natives/STM/GameDesign/Common/Player/ActionGuide/HibikiData_Wp05.user.3.json",
+        "app.user_data.HibikiData_Wp05",
+    )
+
     sheets = {}
     for weapon_type, path in weapon_paths.items():
         df = _dump_weapon_data(
@@ -268,6 +418,8 @@ def dump_weapon_data(keep_serial_id: bool = False) -> dict[str, pd.DataFrame]:
             weapon_types_lower,
             skill_common_data,
             enum_internal,
+            whistle_high_freq_data=whistle_high_freq_data,
+            whistle_hibiki_data=whistle_hibiki_data,
             keep_serial_id=keep_serial_id,
         )
         sheets[weapon_type] = df

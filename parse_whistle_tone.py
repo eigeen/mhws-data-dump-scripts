@@ -104,6 +104,7 @@ class ToneParser(object):
         skill_names = []
         for skills in skills_all:
             skill_names.append([self._get_skill_name(s) for s in skills])
+        skill_names = list(filter(lambda x: x is not None, skill_names))
         output_data["MusicSkillNames"] = skill_names
         return output_data
 
@@ -151,6 +152,7 @@ if __name__ == "__main__":
     parser = ToneParser()
 
     from library.text_db import load_text_db
+
     parser.set_text_db(load_text_db("texts_db.json"))
 
     parser.load_tone_table(
